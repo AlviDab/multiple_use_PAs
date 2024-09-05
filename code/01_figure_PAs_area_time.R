@@ -14,6 +14,12 @@ no_year_info <- wdpa %>%
   filter(STATUS_YR == 0) %>% 
   filter(MARINE != 0)
 
+missing_years <- tibble(IUCN_CAT = "II", 
+                        #A random one, the others are filled by `complete` later
+                        STATUS_YR = 1883:2024,
+                        area = 0,
+                        n_PAs = 0)
+                        
 wdpa_marine_by_IUCN <- wdpa %>% 
   filter(STATUS %in% c("Designated", "Inscribed", "Established")) %>% 
   filter(STATUS_YR != 0) %>% 
@@ -26,11 +32,17 @@ wdpa_marine_by_IUCN <- wdpa %>%
   summarise(area = sum(REP_AREA), #Used REP_AREA because there were some NAs in GIS_AREA
             n_PAs = n()) %>% 
   ungroup() %>% 
+  add_row(missing_years) %>% 
   tidyr::complete(IUCN_CAT, STATUS_YR, fill = list(area = 0, n_PAs = 0)) %>% 
   group_by(IUCN_CAT) %>% 
   mutate(area = cumsum(area),
          n_PAs = cumsum(n_PAs)) %>% 
   mutate(IUCN_CAT = factor(IUCN_CAT, levels = c("Ia", "Ib", "II", "III", "IV", "V", "VI", "Other")))
+
+wdpa_marine <- wdpa_marine_by_IUCN %>% 
+  group_by(STATUS_YR) %>% 
+  summarise(area = sum(area),
+            n_PAs = sum(n_PAs))
 
 PAs_2024 <- wdpa_marine %>% 
   ungroup() %>% 
@@ -39,11 +51,6 @@ PAs_2024 <- wdpa_marine %>%
             n_PAs = sum(n_PAs))
 
 ratio_nPAs_area <- PAs_2024$n_PAs/PAs_2024$area
-
-wdpa_marine <- wdpa_marine_by_IUCN %>% 
-  group_by(STATUS_YR) %>% 
-  summarise(area = sum(area),
-            n_PAs = sum(n_PAs))
 
 colorblind.friendly.moma("OKeeffe")
 
@@ -61,6 +68,6 @@ ggplot() +
   scale_y_continuous(expand = c(0, 0), limits = c(0, PAs_2024$n_PAs*1.05),
                      name = "Total number of Protected Areas",
                      sec.axis = sec_axis(trans=~./ratio_nPAs_area, 
-                                         name = expression(paste("Total area ", (m)^2))))
+                                         name = expression(paste("Total area ", (km)^2))))
 
                                          
