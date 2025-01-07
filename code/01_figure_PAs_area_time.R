@@ -1,4 +1,4 @@
-# Author: Alvise Dabala'
+# Author: Alvise Dabalà
 # Date: 2024-09-04
 
 pacman::p_load(tidyverse, wdpar, MoMAColors)
@@ -6,7 +6,7 @@ pacman::p_load(tidyverse, wdpar, MoMAColors)
 # install.packages("devtools")
 # devtools::install_github("BlakeRMills/MoMAColors")
 
-wdpa <- read.csv("Data/WDPA_Sep2024_Public_csv.csv") %>%
+wdpa <- read.csv("data/WDPA_Sep2024_Public_csv/WDPA_Sep2024_Public_csv.csv") %>%
   as_tibble()
 
 no_year_info <- wdpa %>%
