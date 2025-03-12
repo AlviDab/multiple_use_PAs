@@ -7,12 +7,16 @@ pacman::p_load(tidyverse, wdpar, MoMAColors)
 # devtools::install_github("BlakeRMills/MoMAColors")
 
 wdpa <- read.csv("data/WDPA_Sep2024_Public_csv/WDPA_Sep2024_Public_csv.csv") %>%
-  as_tibble()
+  as_tibble() %>%
+  filter(STATUS %in% c("Designated", "Inscribed", "Established")) %>%
+  filter(DESIG_ENG != "UNESCO-MAB Biosphere Reserve") %>%   
+  mutate(IUCN_CAT = case_when(IUCN_CAT %in% c("Not Applicable", "Not Assigned", "Not Reported") ~ "Other",
+                                                                                        .default = IUCN_CAT
+  )) %>% 
+  mutate(IUCN_CAT = factor(IUCN_CAT, levels = c("Ia", "Ib", "II", "III", "IV", "V", "VI", "Other")))
 
 no_year_info <- wdpa %>%
-  filter(STATUS %in% c("Designated", "Inscribed", "Established")) %>%
-  filter(STATUS_YR == 0) %>%
-  filter(MARINE != 0)
+  filter(STATUS_YR == 0)
 
 missing_years <- tibble(
   IUCN_CAT = "II",
@@ -23,13 +27,9 @@ missing_years <- tibble(
 )
 
 wdpa_marine_by_IUCN <- wdpa %>%
-  filter(STATUS %in% c("Designated", "Inscribed", "Established")) %>%
   filter(STATUS_YR != 0) %>%
   filter(MARINE != 0) %>%
   arrange(STATUS_YR) %>%
-  mutate(IUCN_CAT = case_when(IUCN_CAT %in% c("Not Applicable", "Not Assigned", "Not Reported") ~ "Other",
-    .default = IUCN_CAT
-  )) %>%
   group_by(IUCN_CAT, STATUS_YR) %>%
   summarise(
     area = sum(REP_AREA), # Used REP_AREA because there were some NAs in GIS_AREA
@@ -42,8 +42,7 @@ wdpa_marine_by_IUCN <- wdpa %>%
   mutate(
     area = cumsum(area),
     n_PAs = cumsum(n_PAs)
-  ) %>%
-  mutate(IUCN_CAT = factor(IUCN_CAT, levels = c("Ia", "Ib", "II", "III", "IV", "V", "VI", "Other")))
+  ) 
 
 wdpa_marine <- wdpa_marine_by_IUCN %>%
   group_by(STATUS_YR) %>%
@@ -67,13 +66,9 @@ colorblind.friendly.moma("OKeeffe")
 
 ############## terrestrial
 wdpa_land_by_IUCN <- wdpa %>%
-  filter(STATUS %in% c("Designated", "Inscribed", "Established")) %>%
   filter(STATUS_YR != 0) %>%
   filter(MARINE == 0) %>%
   arrange(STATUS_YR) %>%
-  mutate(IUCN_CAT = case_when(IUCN_CAT %in% c("Not Applicable", "Not Assigned", "Not Reported") ~ "Other",
-                              .default = IUCN_CAT
-  )) %>%
   group_by(IUCN_CAT, STATUS_YR) %>%
   summarise(
     area = sum(REP_AREA), # Used REP_AREA because there were some NAs in GIS_AREA
@@ -86,8 +81,7 @@ wdpa_land_by_IUCN <- wdpa %>%
   mutate(
     area = cumsum(area),
     n_PAs = cumsum(n_PAs)
-  ) %>%
-  mutate(IUCN_CAT = factor(IUCN_CAT, levels = c("Ia", "Ib", "II", "III", "IV", "V", "VI", "Other")))
+  ) 
 
 wdpa_land <- wdpa_land_by_IUCN %>%
   group_by(STATUS_YR) %>%
@@ -115,7 +109,7 @@ ggPA_land <- ggplot() +
   geom_col(data = wdpa_land_by_IUCN, aes(x = STATUS_YR, y = n_PAs, fill = IUCN_CAT)) +
   geom_line(
     data = wdpa_land, aes(x = STATUS_YR, y = area * ratio_nPAs_area_land),
-    linewidth = 1
+    linewidth = 1, colour = "black"
   )  +
   scale_fill_moma_d("OKeeffe", -1) +
   labs(fill = "IUCN category") +
@@ -142,14 +136,15 @@ ggPA_land <- ggplot() +
       name = expression(paste("Total area (Million ", km^2, ")"))
     )
   ) +
-  ggtitle("B. Terrestrial")
+  ggtitle("Terrestrial Protected Areas")
 
+saveRDS(ggPA_land, "Figures/PAs_number_land.rds")
 
 ggPA_marine <- ggplot() +
   geom_col(data = wdpa_marine_by_IUCN, aes(x = STATUS_YR, y = n_PAs, fill = IUCN_CAT)) +
   geom_line(
     data = wdpa_marine, aes(x = STATUS_YR, y = area * ratio_nPAs_area),
-    linewidth = 1
+    linewidth = 1, colour = "black"
   ) +
   scale_fill_moma_d("OKeeffe", -1) +
   labs(fill = "IUCN category") +
@@ -175,9 +170,10 @@ ggPA_marine <- ggplot() +
       trans = ~ . / ratio_nPAs_area,
       name = expression(paste("Total area (Million ", km^2, ")"))
     )
-  )# +
-  #ggtitle("A. Marine")
+  ) +
+  ggtitle("Marine Protected Areas")
 
+saveRDS(ggPA_marine, "Figures/PAs_number_marine.rds")
 
 ######### combine
 library(patchwork)
@@ -188,10 +184,8 @@ ggsave(plot = gg_all,
        filename = ("Figures/PAs_number_area.png"),
        width = 12, height = 11, dpi = 300)
 
-
 ggsave(plot =  ggPA_marine,
        filename = ("Figures/MPAs_number_area_light.png"),
        width = 10, height = 7, dpi = 300)
-
 
 ggPA_marine <- ggPA_marine + ggdark::dark_theme_gray(base_size = 18)
